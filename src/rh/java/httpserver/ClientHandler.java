@@ -7,6 +7,10 @@ import java.net.Socket;
 import java.nio.ByteBuffer;
 import java.util.Observable;
 
+import rh.java.httpserver.websocket.Frame;
+import rh.java.httpserver.websocket.PingFrame;
+import rh.java.httpserver.websocket.PongFrame;
+
 class ClientHandler extends Observable implements Runnable {
 	private Socket socket;
 	private InputStream inputStream;
@@ -149,6 +153,38 @@ class ClientHandler extends Observable implements Runnable {
 					for(int o=0; o<message.length; o++) {
 						int maskOffset = o % 4;
 						message[o] = (byte) ((message[o]) ^ (mask[maskOffset]));
+					}
+					
+					// Lower 4 bits of first byte are the opcode
+					switch(data[0] & 0x0F) {
+					case 0x0 : // Continuation frame
+							
+						break;
+					case 0x1 : // Text frame
+						
+						break;
+					case 0x2 : // Binary frame
+						
+						break;
+					case 0x8 : // Connection close
+							this.inputStream.close();
+							this.outputStream.close();
+						break;
+					case 0x9 : // Ping
+						PingFrame frame = new PingFrame(message);
+						System.out.println("New PingFrame with length " + message.length);
+						this.outputStream.write((new PongFrame(frame)).getBytes());
+						break;
+					case 0xA : // Pong
+						
+						break;
+						default :
+							// 0x3 - 0x7 reserved (non-control)
+							// 0xB - 0xF reserved (control)
+							System.err.println("Unknown opcode received.");
+							this.inputStream.close();
+							this.outputStream.close();
+							break;
 					}
 					
 					setChanged();
