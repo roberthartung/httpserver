@@ -1,4 +1,4 @@
-package rh.java.httpserver.websocket;
+package rh.java.http.server.websocket;
 
 import java.nio.ByteBuffer;
 

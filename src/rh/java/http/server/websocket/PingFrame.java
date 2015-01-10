@@ -1,4 +1,4 @@
-package rh.java.httpserver.websocket;
+package rh.java.http.server.websocket;
 
 public class PingFrame extends Frame {
 	public PingFrame() {
