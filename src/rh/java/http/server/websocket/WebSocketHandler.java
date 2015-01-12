@@ -64,6 +64,10 @@ public class WebSocketHandler extends Observable implements UpgradeHandler {
 				byte[] data;
 				data = readBytes(2);
 				
+				if(data == null) {
+					break;
+				}
+				
 				if((data[1] &  0x80) == 0x80) {
 					isMasked = true;
 				}
@@ -106,8 +110,8 @@ public class WebSocketHandler extends Observable implements UpgradeHandler {
 					break;
 				case 0x9 : // Ping
 					PingFrame frame = new PingFrame(message);
-					System.out.println("New PingFrame with length " + message.length);
-					this.outputStream.write((new PongFrame(frame)).getBytes());
+					write(new PongFrame(frame));
+					// System.out.println("New PingFrame with length " + message.length);
 					break;
 				case 0xA : // Pong
 					
@@ -128,34 +132,70 @@ public class WebSocketHandler extends Observable implements UpgradeHandler {
 				return;
 			}
 		}
+		System.out.println("WebSocket at "+ socket.getRemoteSocketAddress() +" closed.");
+		try {
+			close();
+		} catch (IOException e) {
+			e.printStackTrace();
+		}
 	}
+	
+	/**
+	 * Write frame
+	 * @param frame
+	 * @throws IOException
+	 */
+	
+	public void write(Frame frame) throws IOException {
+		write((frame).getBytes());
+	}
+	
+	/**
+	 * Read a fixed number of bytes
+	 * 
+	 * @param totalLength
+	 * @return
+	 * @throws IOException
+	 */
 	
 	public byte[] readBytes(int totalLength) throws IOException {
-		byte[] data = new byte[totalLength];
-		int readBytes = 0;
-		while((totalLength - readBytes) > 0) {
-			readBytes += inputStream.read(data, readBytes, totalLength - readBytes);
+		try {
+			byte[] data = new byte[totalLength];
+			int readBytes = 0;
+			while((totalLength - readBytes) > 0) {
+				readBytes += inputStream.read(data, readBytes, totalLength - readBytes);
+			}
+			return data;
+		} catch(IOException ex) {
+			close();
+			return null;
 		}
-		return data;
 	}
 
-	public void write(String s) throws IOException {
-		outputStream.write(s.getBytes());
+	private void write(String s) throws IOException {
+		write(s.getBytes());
 	}
 	
-	public void write(ByteBuffer buffer) throws IOException {
-		outputStream.write(buffer.array());
+	/**
+	 * Sends a textframe
+	 * @param text
+	 * @throws IOException 
+	 */
+	
+	public void send(String text) throws IOException {
+		write(new TextFrame(text));
 	}
 		
 	public void write(byte[] a) throws IOException {
-		outputStream.write(a);
-	}
-	
-	public void write(int a) throws IOException {
-		outputStream.write(a);
+		try {
+			outputStream.write(a);
+		} catch(IOException e) {
+			close();
+		}
 	}
 	
 	public void close() throws IOException {
 		outputStream.close();
+		inputStream.close();
 	}
 }

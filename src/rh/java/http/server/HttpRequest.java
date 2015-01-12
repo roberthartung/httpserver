@@ -4,7 +4,9 @@ import java.io.File;
 import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.io.UnsupportedEncodingException;
+import java.net.URLDecoder;
 import java.nio.file.Files;
+import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.Map;
 
@@ -24,6 +26,8 @@ public class HttpRequest {
 	protected Map<String,HttpHeader> responseHeaders = new LinkedHashMap<String,HttpHeader>();
 	
 	protected Integer contentLength = 0;
+	
+	protected byte[] content = null;
 
 	private ClientHandler clientHandler;
 	
@@ -45,6 +49,27 @@ public class HttpRequest {
 	
 	public HttpHeader getHeader(String name) {
 		return headers.get(name);
+	}
+	
+	public Object getContent() {
+		if(headers.containsKey("Content-Type")) {
+			switch(headers.get("Content-Type").getContent()) {
+			case "application/x-www-form-urlencoded" :
+				Map<String, String> data = new HashMap<String, String>();
+				String s = new String(content);
+				for(String part : s.split("&")) {
+					int pos = part.indexOf("=");
+					try {
+						data.put(part.substring(0, pos), URLDecoder.decode(part.substring(pos+1), "UTF-8"));
+					} catch (UnsupportedEncodingException e) {
+						e.printStackTrace();
+					}
+				}
+				return data;
+			}
+		}
+		
+		return content;
 	}
 	
 	private byte[] response = null;
@@ -69,6 +94,12 @@ public class HttpRequest {
 		responseStatus = status;
 	}
 	
+	public void redirect(String path) throws IOException {
+		setResponseStatus(307);
+		addResponseHeader("Location", path);
+		close();
+	}
+	
 	/**
 	 * Close this request. This means sending a response
 	 * 
@@ -77,7 +108,16 @@ public class HttpRequest {
 	
 	public void close() throws IOException {
 		// Status
-		clientHandler.write("HTTP/1.1 "+responseStatus+" OK\r\n");
+		clientHandler.write("HTTP/1.1 "+responseStatus+" ");
+		switch(responseStatus) {
+			case 200 :
+				clientHandler.write("OK");
+			break;
+			case 307 :
+				clientHandler.write("Temporary Redirect");
+				break;
+		}
+		clientHandler.write("\r\n");
 		// Headers
 		if(response != null) {
 			clientHandler.write("Content-Length: "+response.length+"\r\n");

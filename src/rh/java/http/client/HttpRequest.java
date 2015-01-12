@@ -24,8 +24,12 @@ public class HttpRequest {
 		connection.setDoOutput(true);
 	}
 	
+	public Object getContent() throws IOException {
+		return connection.getContent();
+	}
+	
 	public byte[] getResponse() throws IOException {
-		int responseLength = Integer.parseInt(connection.getHeaderField("Content-Length"));
+		int responseLength = connection.getContentLength();
 		InputStream is = connection.getInputStream();
 		byte[] responseAsBytes = new byte[responseLength];
 		int offset = 0;

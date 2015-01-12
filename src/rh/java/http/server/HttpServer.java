@@ -1,12 +1,15 @@
 package rh.java.http.server;
 
 import java.io.IOException;
+import java.net.InetSocketAddress;
 import java.net.ServerSocket;
 import java.net.Socket;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Observable;
 import java.util.Observer;
+import java.util.logging.Level;
+import java.util.logging.Logger;
 
 public class HttpServer extends Observable implements Observer, Runnable {
 	private ServerSocket server;
@@ -15,12 +18,18 @@ public class HttpServer extends Observable implements Observer, Runnable {
 	
 	private Map<ClientHandler, Thread> threads = new HashMap<ClientHandler, Thread>();
 	
-	public HttpServer(int port) throws IOException {
-		server = new ServerSocket(port);
+	public HttpServer(Integer port) throws IOException {
+		if(port != null) {
+			server = new ServerSocket(port);
+		} else {
+			server = new ServerSocket();
+			server.bind(null);
+		}
 	}
 	
 	public int getPort() {
-		return server.getLocalPort();
+		InetSocketAddress addr = (InetSocketAddress) server.getLocalSocketAddress();
+		return addr.getPort();
 	}
 	
 	public void run() {
@@ -56,35 +65,13 @@ public class HttpServer extends Observable implements Observer, Runnable {
 				// UpgradeHandler upgradeHandler = null;
 				Class<? extends UpgradeHandler> upgradeHandlerClass = null;
 				if(request.hasHeader("Upgrade")) {
-					System.out.println("Upgrade in request: " + request.getHeader("Upgrade").getContent());
 					upgradeHandlerClass = upgradeHandlers.get(request.getHeader("Upgrade").getContent());
-					
-					/*
-					if(upgradeHandlerClass != null) {
-						try {
-							upgradeHandler = upgradeHandlerClass.newInstance();
-						} catch (InstantiationException e) {
-							e.printStackTrace();
-						} catch (IllegalAccessException e) {
-							e.printStackTrace();
-						}
-					}
-					*/
-					/*
-					for(UpgradeHandler handler : upgradeHandlers) {
-						if(handler.canUpgrade(type, request)) {
-							upgradeHandler = handler;
-							break;
-						}
-					}
-					*/
 				}
 				
 				// If we have an upgrade handler: send handler otherwise
 				if(upgradeHandlerClass != null) {
 					Thread t = threads.remove(clientHandler);
 					t.interrupt();
-					System.out.println("Upgrade handler found.");
 					UpgradeHandler handler = clientHandler.upgrade(upgradeHandlerClass, request);
 					if(handler != null) {
 						new Thread(handler).start();
@@ -98,19 +85,9 @@ public class HttpServer extends Observable implements Observer, Runnable {
 					notifyObservers(request);
 				}
 				
-			} /*else if(arg1 instanceof UpgradeHandler) {
-				handler.deleteObserver(this);
-				setChanged();
-				notifyObservers(arg1);
-			} */ else {
+			} else {
 				System.err.println("Unknown update argument from ClientHandler: " + arg);
 			}
-			/*
-			  else if(arg1 instanceof byte[]) {
-				byte[] data = (byte[]) arg1;
-				System.out.println("received: " + new String(data));
-			}
-			 */
 		}
 	}
 	

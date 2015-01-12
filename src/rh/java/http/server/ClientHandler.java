@@ -21,32 +21,22 @@ class ClientHandler extends Observable implements Runnable {
 	private String buffer = "";
 	
 	ClientHandler(Socket socket) throws IOException {
+		System.out.println("New Client from " + socket.getRemoteSocketAddress());
 		this.socket = socket;
 		this.inputStream = socket.getInputStream();
 		this.outputStream = socket.getOutputStream();
 	}
 	
-	/*
-	public boolean isUpgraded() {
-		return upgradeHandler != null;
-	}
-	*/
-	
 	public void run() {
-		// (upgradeHandler == null) && 
 		while(socket.isConnected() && !socket.isOutputShutdown() && !socket.isInputShutdown()) {
 			try {
 				int b = this.inputStream.read();
 				
 				if(b == -1) {
-					socket.close();
-					System.err.println("Client closed connection.");
-					return;
+					break;
 				}
 				
 				char c = (char) b;
-				// '" + c + "'
-				// System.out.println(state + " ("+b+") -> '" + buffer + "'");
 				
 				switch(state) {
 				case METHOD :
@@ -113,13 +103,14 @@ class ClientHandler extends Observable implements Runnable {
 				case HEADER_NAME :
 					if(c == '\n') {
 						if(buffer.equals("\r")) {
-							// TODO(rh): Check if we received the content length
 							if(!httpRequest.hasHeader("Content-Length")) {
 								completeRequest();
-								state = ClientState.METHOD;
 							} else {
-								state = ClientState.BODY;
+								// state = ClientState.BODY;
 								httpRequest.contentLength = Integer.parseInt(httpRequest.getHeader("Content-Length").content);
+								byte[] content = readBytes(httpRequest.contentLength);
+								httpRequest.content = content;
+								completeRequest();
 							}
 						}
 						buffer = "";
@@ -144,39 +135,56 @@ class ClientHandler extends Observable implements Runnable {
 						}
 					}
 					break;
+					/*
 				case BODY :
+					byte[] content = readBytes(httpRequest.contentLength-1);
+					httpRequest.content = content;
 					completeRequest();
-					state = ClientState.METHOD;
+					state = ClientState.METHOD; // Reset
 					break;
+					*/
 				}
 			} catch (IOException e) {
-				e.printStackTrace();
-				return;
+				break;
 			}
 		}
-		
-		/*
-		if(upgradeHandler != null) {
-			try {
-				upgradeHandler.receive(socket);
-			} catch (IOException e) {
-				e.printStackTrace();
-			}
+		System.out.println("Client at "+socket.getRemoteSocketAddress() + "closed connection.");
+		try {
+			close();
+		} catch (IOException e) {
+			System.out.println("Error while closing ClientHandler.");
+			e.printStackTrace();
 		}
-		*/
 	}
 	
-	/*
-	private byte[] readRemainingBytes(int firstByte, int totalLength) throws IOException {
-		byte[] data = new byte[totalLength];
-		data[0] = (byte) firstByte;
-		int readBytes = 1;
-		while((totalLength - readBytes) > 0) {
-			readBytes += inputStream.read(data, readBytes, totalLength - readBytes);
+	/**
+	 * 
+	 */
+	
+	public byte[] readBytes(int totalLength) throws IOException {
+		try {
+			byte[] data = new byte[totalLength];
+			int readBytes = 0;
+			while((totalLength - readBytes) > 0) {
+				readBytes += inputStream.read(data, readBytes, totalLength - readBytes);
+			}
+			return data;
+		} catch(IOException ex) {
+			close();
+			return null;
 		}
-		return data;
 	}
-	*/
+	
+	/**
+	 * Request to upgrade the default client hander to another class
+	 * 
+	 * @param upgradeHandlerClass	Class Information of the handler
+	 * @param request				The original HTTP request
+	 * 
+	 * TODO(rh) This should be done directly in the HttpServer
+	 * 
+	 * @return UpgradeHandler
+	 */
 	
 	public UpgradeHandler upgrade(Class<? extends UpgradeHandler> upgradeHandlerClass, HttpRequest request) {
 		UpgradeHandler handler = null;
@@ -208,6 +216,7 @@ class ClientHandler extends Observable implements Runnable {
 		setChanged();
 		notifyObservers(httpRequest);
 		httpRequest = null;
+		state = ClientState.METHOD;
 	}
 		
 	public void write(String s) throws IOException {
@@ -228,5 +237,6 @@ class ClientHandler extends Observable implements Runnable {
 	
 	public void close() throws IOException {
 		outputStream.close();
+		inputStream.close();
 	}
 }
