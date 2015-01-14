@@ -7,21 +7,29 @@ import java.lang.reflect.Constructor;
 import java.lang.reflect.InvocationTargetException;
 import java.net.Socket;
 import java.nio.ByteBuffer;
-import java.util.LinkedList;
-import java.util.List;
 import java.util.Observable;
+import java.util.logging.Level;
+import java.util.logging.Logger;
 
 class ClientHandler extends Observable implements Runnable {
+	private static Logger logger = Logger.getLogger(ClientHandler.class.getName());
+	
+	static {
+		logger.setLevel(Level.ALL);
+	}
+	
 	private Socket socket;
 	private InputStream inputStream;
 	private OutputStream outputStream;
 	private ClientState state = ClientState.METHOD;
 	private HttpRequest httpRequest;
-	private HttpHeader httpHeader = new HttpHeader();
+	// private HttpHeader httpHeader = new HttpHeader();
 	private String buffer = "";
 	
+	private String headerName = null;
+	
 	ClientHandler(Socket socket) throws IOException {
-		System.out.println("New Client from " + socket.getRemoteSocketAddress());
+		logger.finest("New Client from " + socket.getRemoteSocketAddress());
 		this.socket = socket;
 		this.inputStream = socket.getInputStream();
 		this.outputStream = socket.getOutputStream();
@@ -107,7 +115,7 @@ class ClientHandler extends Observable implements Runnable {
 								completeRequest();
 							} else {
 								// state = ClientState.BODY;
-								httpRequest.contentLength = Integer.parseInt(httpRequest.getHeader("Content-Length").content);
+								httpRequest.contentLength = Integer.parseInt(httpRequest.getFirstHeader("Content-Length"));
 								byte[] content = readBytes(httpRequest.contentLength);
 								httpRequest.content = content;
 								completeRequest();
@@ -116,7 +124,8 @@ class ClientHandler extends Observable implements Runnable {
 						buffer = "";
 					} else if(c == ':') {
 						state = ClientState.HEADER_CONTENT;
-						httpHeader.name = buffer;
+						// httpHeader.name = buffer;
+						headerName = buffer;
 						buffer = "";
 					} else {
 						buffer += c;
@@ -125,9 +134,10 @@ class ClientHandler extends Observable implements Runnable {
 				case HEADER_CONTENT :
 					if(c == '\n') {
 						state = ClientState.HEADER_NAME;
-						httpHeader.content = buffer;
-						httpRequest.addHeader(httpHeader);
-						httpHeader = new HttpHeader();
+						// httpHeader.content = buffer;
+						// httpRequest.addRequestHeader(httpHeader);
+						httpRequest.addRequestHeader(headerName, buffer);
+						// httpHeader = new HttpHeader();
 						buffer = "";
 					} else if(c != '\r') {
 						if(c != ' ' || buffer.length() > 0) {
@@ -148,11 +158,11 @@ class ClientHandler extends Observable implements Runnable {
 				break;
 			}
 		}
-		System.out.println("Client at "+socket.getRemoteSocketAddress() + "closed connection.");
+		logger.finest("Connection closed. ("+socket.getRemoteSocketAddress() + ")");
 		try {
 			close();
 		} catch (IOException e) {
-			System.out.println("Error while closing ClientHandler.");
+			logger.severe("Error while closing ClientHandler.");
 			e.printStackTrace();
 		}
 	}

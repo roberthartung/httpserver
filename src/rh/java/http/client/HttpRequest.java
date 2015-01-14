@@ -5,8 +5,17 @@ import java.io.InputStream;
 import java.net.HttpURLConnection;
 import java.net.MalformedURLException;
 import java.net.URL;
+import java.util.logging.Level;
+import java.util.logging.Logger;
 
 public class HttpRequest {
+	
+	private static Logger logger = Logger.getLogger(HttpRequest.class.getName());
+	
+	static {
+		logger.setLevel(Level.ALL);
+	}
+	
 	protected URL url;
 	
 	protected HttpURLConnection connection = null;

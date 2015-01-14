@@ -6,9 +6,12 @@ import java.io.IOException;
 import java.io.UnsupportedEncodingException;
 import java.net.URLDecoder;
 import java.nio.file.Files;
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.LinkedHashMap;
+import java.util.List;
 import java.util.Map;
+import java.util.Map.Entry;
 
 public class HttpRequest {
 	protected String method;
@@ -21,9 +24,9 @@ public class HttpRequest {
 	
 	protected String version;
 	
-	protected Map<String,HttpHeader> headers = new LinkedHashMap<String,HttpHeader>();
+	protected Map<String,List<String>> requestHeaders = new LinkedHashMap<String,List<String>>();
 	
-	protected Map<String,HttpHeader> responseHeaders = new LinkedHashMap<String,HttpHeader>();
+	protected Map<String,List<String>> responseHeaders = new LinkedHashMap<String,List<String>>();
 	
 	protected Integer contentLength = 0;
 	
@@ -35,25 +38,13 @@ public class HttpRequest {
 		this.clientHandler = clientHandler;
 	}
 	
-	protected void addHeader(HttpHeader header) {
-		headers.put(header.name, header);
-	}
-	
 	public String toString() {
 		return method + " " + path;
 	}
 	
-	public boolean hasHeader(String name) {
-		return headers.containsKey(name);
-	}
-	
-	public HttpHeader getHeader(String name) {
-		return headers.get(name);
-	}
-	
 	public Object getContent() {
-		if(headers.containsKey("Content-Type")) {
-			switch(headers.get("Content-Type").getContent()) {
+		if(requestHeaders.containsKey("Content-Type")) {
+			switch(requestHeaders.get("Content-Type").get(0)) {
 			case "application/x-www-form-urlencoded" :
 				Map<String, String> data = new HashMap<String, String>();
 				String s = new String(content);
@@ -123,8 +114,10 @@ public class HttpRequest {
 			clientHandler.write("Content-Length: "+response.length+"\r\n");
 		}
 		clientHandler.write("Connection: keep-alive\r\n");
-		for(HttpHeader header : responseHeaders.values()) {
-			clientHandler.write(header.toString() + "\r\n");
+		for(Entry<String, List<String>> entry : responseHeaders.entrySet()) {
+			for(String value : entry.getValue()) {
+				clientHandler.write(entry.getKey() + ": "+value+"\r\n");
+			}
 		}
 		clientHandler.write("\r\n");
 		// Content
@@ -144,6 +137,12 @@ public class HttpRequest {
 	public String getQuery() {
 		return query;
 	}
+	
+	/**
+	 * 
+	 * 
+	 * @return
+	 */
 	
 	public String getFragment() {
 		return fragment;
@@ -176,11 +175,93 @@ public class HttpRequest {
 	  return result;
 	}
 	*/
+	/*
 	public void addResponseHeader(HttpHeader header) {
 		responseHeaders.put(header.name, header);
 	}
+	*/
+
+	/**
+	 * Helper function to add a header
+	 * 
+	 * @param target
+	 * @param name
+	 * @param content
+	 */
 	
-	public void addResponseHeader(String name, String content) {
-		addResponseHeader(new HttpHeader(name, content));
+	private void addHeader(Map<String, List<String>> target, String name, String content) {
+		List<String> values = target.get(name);
+		if(values == null) {
+			values = new ArrayList<String>();
+			target.put(name, values);
+		}
+		
+		values.add(content);
+	}
+	
+	/**
+	 * Helper function to set (override) a header
+	 * 
+	 * @param target
+	 * @param name
+	 * @param content
+	 */
+	
+	private void setHeader(Map<String, List<String>> target, String name, String content) {
+		List<String> values = new ArrayList<String>();
+		values.add(content);
+		target.put(name, values);
+	}
+	
+	// ############# RequestHeaders
+	
+	/**
+	 * adds a request headers (used by the HttpServer class to add headers)
+	 * 
+	 * @param name
+	 * @param value
+	 */
+	
+	protected void addRequestHeader(String name, String value) {
+		addHeader(requestHeaders, name, value);
+	}
+	
+	public boolean hasHeader(String name) {
+		return requestHeaders.containsKey(name);
+	}
+	
+	public List<String> getHeader(String name) {
+		if(!requestHeaders.containsKey(name))
+			return null;
+		
+		return requestHeaders.get(name);
+	}
+	
+	public String getFirstHeader(String name) {
+		List<String> values = getHeader(name);
+		if(values == null)
+			return null;
+		
+		return values.get(0);
+	}
+	
+	// ############# Cookies
+	
+	public void setCookie(String name, String value) {
+		setCookie(new Cookie(name, value));
+	}
+	
+	public void setCookie(Cookie cookie) {
+		addResponseHeader("Set-Cookie", cookie.toString());
+	}
+	
+	// ############# Response Headers
+	
+	public void setResponseHeader(String name, String value) {
+		setHeader(responseHeaders, name, value);
+	}
+	
+	public void addResponseHeader(String name, String value) {
+		addHeader(responseHeaders, name, value);
 	}
 }

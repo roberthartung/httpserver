@@ -4,16 +4,23 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
 import java.net.Socket;
-import java.nio.ByteBuffer;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.util.Base64;
 import java.util.Observable;
+import java.util.logging.Level;
+import java.util.logging.Logger;
 
 import rh.java.http.server.HttpRequest;
 import rh.java.http.server.UpgradeHandler;
 
 public class WebSocketHandler extends Observable implements UpgradeHandler {
+	
+	private static Logger logger = Logger.getLogger(WebSocketHandler.class.getName());
+	
+	static {
+		logger.setLevel(Level.ALL);
+	}
 	
 	private OutputStream outputStream;
 	
@@ -24,10 +31,11 @@ public class WebSocketHandler extends Observable implements UpgradeHandler {
 	private Socket socket;
 	
 	public WebSocketHandler(Socket socket, HttpRequest request) throws IOException {
+		logger.finest("WebSocket upgrade for " + socket.getRemoteSocketAddress());
 		this.socket = socket;
 		inputStream = socket.getInputStream();
 		outputStream = socket.getOutputStream();
-		key = request.getHeader("Sec-WebSocket-Key").getContent();
+		key = request.getFirstHeader("Sec-WebSocket-Key");
 		
 		try {
 			MessageDigest sha1 = MessageDigest.getInstance("SHA-1");
@@ -52,7 +60,6 @@ public class WebSocketHandler extends Observable implements UpgradeHandler {
 		return false;
 	}
 	*/
-	
 	
 	@Override
 	public void run() {
@@ -88,55 +95,72 @@ public class WebSocketHandler extends Observable implements UpgradeHandler {
 				}
 				
 				byte[] message = readBytes(payloadLength);
-				for(int o=0; o<message.length; o++) {
-					int maskOffset = o % 4;
-					message[o] = (byte) ((message[o]) ^ (mask[maskOffset]));
+				if(message == null) {
+					logger.severe("message is null");
+				}
+				
+				try {
+					for(int o=0; o<message.length; o++) {
+						int maskOffset = o % 4;
+						message[o] = (byte) ((message[o]) ^ (mask[maskOffset]));
+					}
+				} catch(NullPointerException e) {
+					logger.severe("Error while retreiving frame of length " + payloadLength);
+					/*
+					for(int o=0; o<message.length; o++) {
+						int maskOffset = o % 4;
+						logger.finest("message["+o+"] = message["+o+"]("+message[o]+") ^ mask["+maskOffset+"]("+mask[maskOffset]+")");
+					}
+					*/
 				}
 				
 				// Lower 4 bits of first byte are the opcode
 				switch(data[0] & 0x0F) {
 				case 0x0 : // Continuation frame
-						
+					logger.finest("Continuation frame received.");
 					break;
 				case 0x1 : // Text frame
-					
+					logger.finest("Text frame received.");
 					break;
 				case 0x2 : // Binary frame
-					
+					logger.finest("Binary frame received.");
 					break;
 				case 0x8 : // Connection close
+					logger.finest("close frame received.");
 						this.inputStream.close();
 						this.outputStream.close();
 					break;
 				case 0x9 : // Ping
+					// TODO(RH)
+					logger.finest("WebSocket ping frame received.");
 					PingFrame frame = new PingFrame(message);
 					write(new PongFrame(frame));
-					// System.out.println("New PingFrame with length " + message.length);
 					break;
 				case 0xA : // Pong
-					
+					logger.finest("Pongframe received.");
 					break;
 					default :
 						// 0x3 - 0x7 reserved (non-control)
 						// 0xB - 0xF reserved (control)
-						System.err.println("Unknown opcode received.");
-						this.inputStream.close();
-						this.outputStream.close();
+						logger.severe("Unknown opcode received.");
+						close();
 						break;
 				}
 				
 				setChanged();
 				notifyObservers(message);
 			} catch (IOException e) {
-				e.printStackTrace();
-				return;
+				logger.info("IOException at WebSocket: " + e.getMessage());
+				break;
 			}
 		}
-		System.out.println("WebSocket at "+ socket.getRemoteSocketAddress() +" closed.");
+		
+		logger.info("WebSocket at "+ socket.getRemoteSocketAddress() +" closed.");
+		
 		try {
 			close();
 		} catch (IOException e) {
-			e.printStackTrace();
+			logger.severe("IOException while closing WebSocketHandler: " + e.getMessage());
 		}
 	}
 	
@@ -159,17 +183,12 @@ public class WebSocketHandler extends Observable implements UpgradeHandler {
 	 */
 	
 	public byte[] readBytes(int totalLength) throws IOException {
-		try {
-			byte[] data = new byte[totalLength];
-			int readBytes = 0;
-			while((totalLength - readBytes) > 0) {
-				readBytes += inputStream.read(data, readBytes, totalLength - readBytes);
-			}
-			return data;
-		} catch(IOException ex) {
-			close();
-			return null;
+		byte[] data = new byte[totalLength];
+		int readBytes = 0;
+		while((totalLength - readBytes) > 0) {
+			readBytes += inputStream.read(data, readBytes, totalLength - readBytes);
 		}
+		return data;
 	}
 
 	private void write(String s) throws IOException {
