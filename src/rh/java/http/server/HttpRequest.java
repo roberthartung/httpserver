@@ -245,6 +245,22 @@ public class HttpRequest {
 		return values.get(0);
 	}
 	
+	public Map<String, Cookie> getCookies() {
+		Map<String, Cookie> cookies = new HashMap<String, Cookie>();
+		if(hasHeader("Cookie")) {
+			for(String value : getHeader("Cookie")) {
+				// TODO(rh): Better implementation
+				for(String cookie : value.trim().split(";")) {
+					String[] parts = cookie.split("=");
+					String k = parts[0].trim();
+					String v = parts[1].trim();
+					cookies.put(k, new Cookie(k, v));
+				}
+			}
+		}
+		return cookies;
+	}
+	
 	// ############# Cookies
 	
 	public void setCookie(String name, String value) {

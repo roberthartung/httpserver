@@ -30,7 +30,10 @@ public class WebSocketHandler extends Observable implements UpgradeHandler {
 	
 	private Socket socket;
 	
+	private HttpRequest request;
+	
 	public WebSocketHandler(Socket socket, HttpRequest request) throws IOException {
+		this.request = request;
 		logger.finest("WebSocket upgrade for " + socket.getRemoteSocketAddress());
 		this.socket = socket;
 		inputStream = socket.getInputStream();
@@ -49,17 +52,9 @@ public class WebSocketHandler extends Observable implements UpgradeHandler {
 		}
 	}
 	
-	/*
-	@Override
-	public boolean canUpgrade(String type, HttpRequest request) {
-		if(type.equals("websocket") && request.getHeader("Sec-WebSocket-Version").getContent().equals("13")) {
-			key = request.getHeader("Sec-WebSocket-Key").getContent();
-			return true;
-		}
-		
-		return false;
+	public HttpRequest getHttpRequest() {
+		return request;
 	}
-	*/
 	
 	@Override
 	public void run() {
