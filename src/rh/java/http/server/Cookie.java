@@ -5,10 +5,18 @@ public class Cookie {
 	protected String name;
 	
 	protected String value;
+	
+	protected String path = "/";
 
 	public Cookie(String name, String value) {
 		this.name = name;
 		this.value = value;
+	}
+	
+	public Cookie(String name, String value, String path) {
+		this.name = name;
+		this.value = value;
+		this.path = path;
 	}
 	
 	public String getName() {
@@ -20,7 +28,6 @@ public class Cookie {
 	}
 	
 	public String toString() {
-		// TODO(rh): 
-		return name+"="+value;
+		return name+"="+value+"; Path="+path;
 	}
 }

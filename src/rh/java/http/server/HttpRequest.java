@@ -263,6 +263,10 @@ public class HttpRequest {
 	
 	// ############# Cookies
 	
+	public void setCookie(String name, String value, String path) {
+		setCookie(new Cookie(name, value, path));
+	}
+	
 	public void setCookie(String name, String value) {
 		setCookie(new Cookie(name, value));
 	}
