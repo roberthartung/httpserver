@@ -12,8 +12,16 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
+import java.util.logging.Level;
+import java.util.logging.Logger;
 
 public class HttpRequest {
+	private static Logger logger = Logger.getLogger(HttpRequest.class.getName());
+	
+	static {
+		logger.setLevel(Level.ALL);
+	}
+	
 	protected String method;
 	
 	protected String path;
@@ -65,10 +73,11 @@ public class HttpRequest {
 	
 	private byte[] response = null;
 	
-	private int responseStatus = 200;
+	private int responseStatus = 204;
 	
 	public void setResponse(byte[] response) {
 		this.response = response;
+		responseStatus = 200;
 	}
 	
 	public void setResponse(File file) {
@@ -97,29 +106,38 @@ public class HttpRequest {
 	 * @throws IOException
 	 */
 	
+	private void write(String s) throws IOException {
+		clientHandler.write(s);
+	}
+	
 	public void close() throws IOException {
 		// Status
-		clientHandler.write("HTTP/1.1 "+responseStatus+" ");
+		write("HTTP/1.1 "+responseStatus+" ");
 		switch(responseStatus) {
 			case 200 :
-				clientHandler.write("OK");
+				write("OK");
 			break;
+			case 204 :
+				write("No Content");
+				break;
 			case 307 :
-				clientHandler.write("Temporary Redirect");
+				write("Temporary Redirect");
 				break;
 		}
-		clientHandler.write("\r\n");
-		// Headers
-		if(response != null) {
-			clientHandler.write("Content-Length: "+response.length+"\r\n");
-		}
-		clientHandler.write("Connection: keep-alive\r\n");
+		write("\r\n");
+		// write("Connection: keep-alive\r\n");
 		for(Entry<String, List<String>> entry : responseHeaders.entrySet()) {
 			for(String value : entry.getValue()) {
-				clientHandler.write(entry.getKey() + ": "+value+"\r\n");
+				write(entry.getKey() + ": "+value+"\r\n");
 			}
 		}
-		clientHandler.write("\r\n");
+		// Headers
+		if(response != null) {
+			write("Content-Length: "+response.length+"\r\n");
+		} else {
+			write("Content-Length: 0\r\n");
+		}
+		write("\r\n");
 		// Content
 		if(response != null) {
 			clientHandler.write(response);
