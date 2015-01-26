@@ -5,6 +5,8 @@ import java.io.InputStream;
 import java.io.OutputStream;
 import java.lang.reflect.Constructor;
 import java.lang.reflect.InvocationTargetException;
+import java.net.InetAddress;
+import java.net.InetSocketAddress;
 import java.net.Socket;
 import java.nio.ByteBuffer;
 import java.util.Observable;
@@ -41,6 +43,7 @@ class ClientHandler extends Observable implements Runnable {
 				int b = this.inputStream.read();
 				
 				if(b == -1) {
+					logger.info("Stream finished");
 					break;
 				}
 				
@@ -180,6 +183,7 @@ class ClientHandler extends Observable implements Runnable {
 			}
 			return data;
 		} catch(IOException ex) {
+			logger.severe("IOException " + ex.getMessage());
 			close();
 			return null;
 		}

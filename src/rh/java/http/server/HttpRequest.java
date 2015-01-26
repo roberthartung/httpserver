@@ -50,16 +50,24 @@ public class HttpRequest {
 		return method + " " + path;
 	}
 	
+	public byte[] getRawContent() {
+		return content;
+	}
+	
 	public Object getContent() {
 		if(requestHeaders.containsKey("Content-Type")) {
-			switch(requestHeaders.get("Content-Type").get(0)) {
+			String contentType = requestHeaders.get("Content-Type").get(0);
+			String[] parts = contentType.split(";");
+			// TODO(rh): Check charset
+			switch(parts[0]) {
 			case "application/x-www-form-urlencoded" :
+			//case "application/x-www-form-urlencoded;charset=utf-8" :
 				Map<String, String> data = new HashMap<String, String>();
 				String s = new String(content);
 				for(String part : s.split("&")) {
 					int pos = part.indexOf("=");
 					try {
-						data.put(part.substring(0, pos), URLDecoder.decode(part.substring(pos+1), "UTF-8"));
+						data.put(URLDecoder.decode(part.substring(0, pos), "UTF-8"), URLDecoder.decode(part.substring(pos+1), "UTF-8"));
 					} catch (UnsupportedEncodingException e) {
 						e.printStackTrace();
 					}
@@ -253,6 +261,10 @@ public class HttpRequest {
 			return null;
 		
 		return requestHeaders.get(name);
+	}
+	
+	public Map<String,List<String>> getHeaders() {
+		return requestHeaders;
 	}
 	
 	public String getFirstHeader(String name) {

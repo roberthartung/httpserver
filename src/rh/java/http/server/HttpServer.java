@@ -41,12 +41,14 @@ public class HttpServer extends Observable implements Observer, Runnable {
 	
 	public HttpServer(Integer port) throws IOException {
 		if(port != null) {
-			server = new ServerSocket(port);
+			server = new ServerSocket();
+			server.bind(new InetSocketAddress("0.0.0.0", port));
 		} else {
 			server = new ServerSocket();
-			server.bind(null);
+			// server.bind(null);
+			server.bind(new InetSocketAddress("0.0.0.0", 0));
 		}
-		executorService = Executors.newFixedThreadPool(5);
+		executorService = Executors.newFixedThreadPool(15);
 	}
 	
 	/**
@@ -104,16 +106,19 @@ public class HttpServer extends Observable implements Observer, Runnable {
 				}
 				
 				// TODO(rh): Configurable?
-				switch(request.getFirstHeader("Connection").toLowerCase()) {
-					case "keep-alive" :
-						request.setResponseHeader("Connection", "keep-alive");
-						break;
+				String header = request.getFirstHeader("Connection");
+				if(header != null) {
+					switch(header.toLowerCase()) {
+						case "keep-alive" :
+							request.setResponseHeader("Connection", "keep-alive");
+							break;
+					}
 				}
 				
 				// If we have an upgrade handler: send handler otherwise
 				if(upgradeHandlerClass != null) {
 					Future<?> f = clients.remove(clientHandler);
-					System.out.println(clientHandler + " interrupted.");
+					logger.finest(clientHandler + " interrupted.");
 					if(!f.cancel(true)) {
 						logger.severe("Unable to cancel ClientHandler.");
 					}
@@ -127,16 +132,17 @@ public class HttpServer extends Observable implements Observer, Runnable {
 						setChanged();
 						notifyObservers(handler);
 					} else {
-						System.err.println("Failed to use upgrade handler.");
+						logger.severe("Failed to use upgrade handler.");
 					}
 				} else {
 					setChanged();
 					notifyObservers(request);
 				}
-				
 			} else {
-				System.err.println("Unknown update argument from ClientHandler: " + arg);
+				logger.severe("Unknown update argument from ClientHandler: " + arg);
 			}
+		} else {
+			logger.severe("Update from unknown observed child");
 		}
 	}
 	

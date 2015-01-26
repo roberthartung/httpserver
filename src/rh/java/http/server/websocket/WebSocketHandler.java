@@ -6,10 +6,13 @@ import java.io.OutputStream;
 import java.net.Socket;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
-import java.util.Base64;
+/* Since Java 8 */
+/*import java.util.Base64;*/
 import java.util.Observable;
 import java.util.logging.Level;
 import java.util.logging.Logger;
+
+import javax.xml.bind.DatatypeConverter;
 
 import rh.java.http.server.HttpRequest;
 import rh.java.http.server.UpgradeHandler;
@@ -39,14 +42,14 @@ public class WebSocketHandler extends Observable implements UpgradeHandler {
 		inputStream = socket.getInputStream();
 		outputStream = socket.getOutputStream();
 		key = request.getFirstHeader("Sec-WebSocket-Key");
-		
 		try {
 			MessageDigest sha1 = MessageDigest.getInstance("SHA-1");
 			byte[] hash = sha1.digest((key + "258EAFA5-E914-47DA-95CA-C5AB0DC85B11").getBytes());
 			write("HTTP/1.1 101 Switching Protocols\r\n");
 			write("Upgrade: websocket\r\n");
 			write("Connection: Upgrade\r\n");
-			write("Sec-WebSocket-Accept: "+ Base64.getEncoder().encodeToString(hash) + "\r\n\r\n");
+			write("Sec-WebSocket-Accept: "+ DatatypeConverter.printBase64Binary(hash) + "\r\n\r\n");
+			// write("Sec-WebSocket-Accept: "+ Base64.getEncoder().encodeToString(hash) + "\r\n\r\n");
 		} catch (NoSuchAlgorithmException e1) {
 			e1.printStackTrace();
 		}

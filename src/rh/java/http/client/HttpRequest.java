@@ -2,9 +2,15 @@ package rh.java.http.client;
 
 import java.io.IOException;
 import java.io.InputStream;
+import java.io.OutputStream;
 import java.net.HttpURLConnection;
 import java.net.MalformedURLException;
 import java.net.URL;
+import java.util.ArrayList;
+import java.util.LinkedHashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.Map.Entry;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
@@ -20,6 +26,8 @@ public class HttpRequest {
 	
 	protected HttpURLConnection connection = null;
 	
+	protected Map<String,List<String>> requestHeaders = new LinkedHashMap<String,List<String>>();
+	
 	public HttpRequest(String path) throws MalformedURLException {
 		url = new URL(path);
 	}
@@ -31,6 +39,34 @@ public class HttpRequest {
 		connection.setUseCaches(false);
 		connection.setDoInput(true);
 		connection.setDoOutput(true);
+		for(Entry<String, List<String>> entry : requestHeaders.entrySet()) {
+			for(String value : entry.getValue()) {
+				connection.setRequestProperty(entry.getKey(), value);
+				// os.write((entry.getKey() + ": "+value+"\r\n").getBytes());
+			}
+		}
+	}
+	
+	/**
+	 * Helper function to add a header
+	 * 
+	 * @param target
+	 * @param name
+	 * @param content
+	 */
+	
+	private void addHeader(Map<String, List<String>> target, String name, String content) {
+		List<String> values = target.get(name);
+		if(values == null) {
+			values = new ArrayList<String>();
+			target.put(name, values);
+		}
+		
+		values.add(content);
+	}
+	
+	public void addRequestHeader(String name, String value) {
+		addHeader(requestHeaders, name, value);
 	}
 	
 	public Object getContent() throws IOException {
