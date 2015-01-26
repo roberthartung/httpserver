@@ -4,7 +4,9 @@ import java.io.IOException;
 import java.net.InetSocketAddress;
 import java.net.ServerSocket;
 import java.net.Socket;
+import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.Observable;
 import java.util.Observer;
@@ -28,7 +30,9 @@ public class HttpServer extends Observable implements Observer, Runnable {
 	
 	// private Map<ClientHandler, Thread> threads = new HashMap<ClientHandler, Thread>();
 	
-	private Map<ClientHandler, Future<?>> clients = new HashMap<ClientHandler, Future<?>>();
+	// private Map<ClientHandler, Future<?>> clients = new HashMap<ClientHandler, Future<?>>();
+	
+	private List<ClientHandler> clients = new ArrayList<ClientHandler>();
 	
 	private ExecutorService executorService;
 	
@@ -76,7 +80,9 @@ public class HttpServer extends Observable implements Observer, Runnable {
 			while((client = server.accept()) != null) {
 				handler = new ClientHandler(client);
 				handler.addObserver(this);
-				clients.put(handler, executorService.submit(handler));
+				// clients.put(handler, executorService.submit(handler));
+				executorService.execute(handler);
+				clients.add(handler);
 				// Thread t = new Thread(handler);
 				// threads.put(handler,  t);
 				// t.start();
@@ -117,11 +123,18 @@ public class HttpServer extends Observable implements Observer, Runnable {
 				
 				// If we have an upgrade handler: send handler otherwise
 				if(upgradeHandlerClass != null) {
-					Future<?> f = clients.remove(clientHandler);
-					logger.finest(clientHandler + " interrupted.");
+					/*Future<?> f = clients.remove(clientHandler);
+					System.out.println(clientHandler + " interrupted.");
 					if(!f.cancel(true)) {
 						logger.severe("Unable to cancel ClientHandler.");
 					}
+                    */
+					try {
+						clientHandler.close();
+					} catch (IOException e) {
+						e.printStackTrace();
+					}
+					clients.remove(clientHandler);
 					// executorService.
 					// Thread t = threads.remove(clientHandler);
 					// t.interrupt();
