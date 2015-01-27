@@ -77,14 +77,15 @@ public class WebSocketHandler extends Observable implements UpgradeHandler {
 					isMasked = true;
 				}
 				
-				payloadLength = (data[1] & ~0xF0) & 0xFF;
+				payloadLength = (data[1] & ~0x80) & 0xFF;
+				byte[] additionalLength;
 				
 				switch(payloadLength) {
 				case 126 :
-						data = readBytes(2);
+					additionalLength = readBytes(2);
 					break;
 				case 127 :
-						data = readBytes(8);
+					additionalLength = readBytes(8);
 					break;
 				}
 				
@@ -93,6 +94,7 @@ public class WebSocketHandler extends Observable implements UpgradeHandler {
 				}
 				
 				byte[] message = readBytes(payloadLength);
+				logger.info("payload length: " + payloadLength);
 				if(message == null) {
 					logger.severe("message is null");
 				}
@@ -113,20 +115,29 @@ public class WebSocketHandler extends Observable implements UpgradeHandler {
 				}
 				
 				// Lower 4 bits of first byte are the opcode
-				switch(data[0] & 0x0F) {
+				int opcode = (data[0] & 0x0F);
+				switch(opcode) {
 				case 0x0 : // Continuation frame
 					logger.finest("Continuation frame received.");
+					setChanged();
+					notifyObservers(message);
 					break;
 				case 0x1 : // Text frame
 					logger.finest("Text frame received.");
+					setChanged();
+					notifyObservers(new TextFrame(message));
 					break;
 				case 0x2 : // Binary frame
 					logger.finest("Binary frame received.");
+					setChanged();
+					notifyObservers(message);
 					break;
 				case 0x8 : // Connection close
 					logger.finest("close frame received.");
 						this.inputStream.close();
 						this.outputStream.close();
+						setChanged();
+						notifyObservers();
 					break;
 				case 0x9 : // Ping
 					// TODO(RH)
@@ -140,13 +151,10 @@ public class WebSocketHandler extends Observable implements UpgradeHandler {
 					default :
 						// 0x3 - 0x7 reserved (non-control)
 						// 0xB - 0xF reserved (control)
-						logger.severe("Unknown opcode received.");
+						logger.severe("Unknown opcode received: " + opcode);
 						close();
 						break;
 				}
-				
-				setChanged();
-				notifyObservers(message);
 			} catch (IOException e) {
 				logger.info("IOException at WebSocket: " + e.getMessage());
 				break;

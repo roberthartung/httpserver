@@ -5,6 +5,7 @@ import java.io.InputStream;
 import java.io.UnsupportedEncodingException;
 import java.net.HttpURLConnection;
 import java.net.MalformedURLException;
+import java.net.URLEncoder;
 import java.util.Map;
 import java.util.Map.Entry;
 
@@ -27,15 +28,13 @@ public class HttpPostRequest extends HttpRequest {
 			if (data.length() > 0) {
 				data.append("&");
 			}
-
+			
 			try {
-				data.append(entry.getKey() + "="
-						+ java.net.URLDecoder.decode(entry.getValue(), "UTF-8"));
+				data.append(entry.getKey() + "=" + URLEncoder.encode(entry.getValue(), "UTF-8"));
 			} catch (UnsupportedEncodingException e) {
 				e.printStackTrace();
 			}
 		}
-
 		send(data.toString().getBytes());
 	}
 }

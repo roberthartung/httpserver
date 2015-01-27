@@ -6,4 +6,8 @@ public class TextFrame extends Frame {
 		super(contents.getBytes().length, OPCODE_TEXT_FRAME);
 		buffer.put(contents.getBytes());
 	}
+	
+	protected TextFrame(byte[] data) {
+		super(data);
+	}
 }
